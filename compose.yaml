@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: taxi
+      POSTGRES_PASSWORD: taxi_local_dev
+      POSTGRES_DB: taxi_analytics
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - taxi_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taxi -d taxi_analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  taxi_postgres_data:
