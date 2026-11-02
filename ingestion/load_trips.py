@@ -1,5 +1,7 @@
+import argparse
 import hashlib
 import os
+from datetime import datetime
 from pathlib import Path
 
 import psycopg
@@ -8,9 +10,6 @@ import pyarrow.parquet as pq
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-TRIP_FILE = (
-    PROJECT_ROOT / "data/raw/yellow_tripdata_2024-01.parquet"
-)
 
 DATABASE_URL = os.environ.get(
     "DATABASE_URL",
@@ -54,21 +53,50 @@ def file_sha256(path: Path) -> str:
 
 
 def main():
-    if not TRIP_FILE.is_file():
-        raise FileNotFoundError(f"Missing dataset: {TRIP_FILE}")
+    parser = argparse.ArgumentParser(
+        description="Import one month of yellow taxi trip records."
+    )
+    parser.add_argument(
+        "--month",
+        default="2024-01",
+        help="Source month in YYYY-MM format. Default: 2024-01",
+    )
+    args = parser.parse_args()
 
-    source_file = TRIP_FILE.name
-    checksum = file_sha256(TRIP_FILE)
-    parquet_file = pq.ParquetFile(TRIP_FILE)
+    try:
+        parsed_month = datetime.strptime(args.month, "%Y-%m")
+    except ValueError:
+        parser.error("--month must be a valid month in YYYY-MM format")
+
+    if parsed_month.strftime("%Y-%m") != args.month:
+        parser.error("--month must use YYYY-MM format, such as 2024-02")
+
+    source_month = parsed_month.date()
+
+    trip_file = (
+        PROJECT_ROOT
+        / "data"
+        / "raw"
+        / f"yellow_tripdata_{args.month}.parquet"
+    )
+
+    if not trip_file.is_file():
+        raise FileNotFoundError(f"Missing dataset: {trip_file}")
+
+    source_file = trip_file.name
+    checksum = file_sha256(trip_file)
+    parquet_file = pq.ParquetFile(trip_file)
     expected_rows = parquet_file.metadata.num_rows
-
     source_columns = list(COLUMN_MAP)
+
     missing = set(source_columns) - set(
         parquet_file.schema_arrow.names
     )
 
     if missing:
-        raise ValueError(f"Missing Parquet columns: {sorted(missing)}")
+        raise ValueError(
+            f"Missing Parquet columns: {sorted(missing)}"
+        )
 
     destination_columns = [
         "source_file",
@@ -96,7 +124,7 @@ def main():
 
             cursor.execute(
                 """
-                SELECT file_sha256, row_count
+                SELECT file_sha256, row_count, source_month
                 FROM raw.ingestion_files
                 WHERE source_file = %s
                 """,
@@ -105,12 +133,22 @@ def main():
             existing = cursor.fetchone()
 
             if existing is not None:
-                previous_checksum, previous_count = existing
+                (
+                    previous_checksum,
+                    previous_count,
+                    previous_month,
+                ) = existing
 
                 if previous_checksum != checksum:
                     raise RuntimeError(
                         "This filename was already imported with different "
                         "contents. Investigate before replacing its data."
+                    )
+
+                if previous_month != source_month:
+                    raise RuntimeError(
+                        "Stored source month does not match the filename. "
+                        "Check the source-month metadata migration."
                     )
 
                 cursor.execute(
@@ -132,6 +170,7 @@ def main():
 
                 print(f"Skipped: {source_file}")
                 print(f"Already imported: {previous_count:,} rows")
+                print(f"Source month: {source_month}")
                 return
 
             loaded_rows = 0
@@ -175,7 +214,7 @@ def main():
                     "Row-count verification failed; import rolled back."
                 )
 
-            if file_sha256(TRIP_FILE) != checksum:
+            if file_sha256(trip_file) != checksum:
                 raise RuntimeError(
                     "Source file changed during import; rolled back."
                 )
@@ -185,16 +224,23 @@ def main():
                 INSERT INTO raw.ingestion_files (
                     source_file,
                     file_sha256,
-                    row_count
+                    row_count,
+                    source_month
                 )
-                VALUES (%s, %s, %s)
+                VALUES (%s, %s, %s, %s)
                 """,
-                (source_file, checksum, loaded_rows),
+                (
+                    source_file,
+                    checksum,
+                    loaded_rows,
+                    source_month,
+                ),
             )
 
     # Successful connection-context exit commits the transaction.
     print(f"\nImport committed: {source_file}")
     print(f"Rows loaded: {loaded_rows:,}")
+    print(f"Source month: {source_month}")
 
 
 if __name__ == "__main__":

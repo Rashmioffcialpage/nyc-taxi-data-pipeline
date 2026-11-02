@@ -1,52 +1,73 @@
 BEGIN;
 
 DO $$
-DECLARE
-    source_count BIGINT;
-    retained_count BIGINT;
-    excluded_count BIGINT;
-    logged_count BIGINT;
 BEGIN
-    SELECT COUNT(*)
-    INTO source_count
-    FROM raw.yellow_trips
-    WHERE source_file = 'yellow_tripdata_2024-01.parquet';
-
-    IF source_count = 0 THEN
-        RAISE EXCEPTION 'FAIL: January source data is empty';
+    IF NOT EXISTS (SELECT 1 FROM raw.yellow_trips) THEN
+        RAISE EXCEPTION 'FAIL: Raw trip data is empty';
     END IF;
 
-    SELECT row_count
-    INTO logged_count
-    FROM raw.ingestion_files
-    WHERE source_file = 'yellow_tripdata_2024-01.parquet';
-
-    IF logged_count IS DISTINCT FROM source_count THEN
+    -- Every file must have an import log with the correct count.
+    IF EXISTS (
+        WITH actual AS (
+            SELECT source_file, COUNT(*) AS row_count
+            FROM raw.yellow_trips
+            GROUP BY source_file
+        )
+        SELECT 1
+        FROM actual AS a
+        FULL OUTER JOIN raw.ingestion_files AS i
+            ON a.source_file = i.source_file
+        WHERE a.source_file IS NULL
+           OR i.source_file IS NULL
+           OR a.row_count IS DISTINCT FROM i.row_count
+    ) THEN
         RAISE EXCEPTION
-            'FAIL: Import log (%) differs from raw row count (%)',
-            logged_count, source_count;
+            'FAIL: Import logs and raw file counts do not match';
     END IF;
 
-    RAISE NOTICE 'PASS: Import log matches raw data';
+    RAISE NOTICE 'PASS: Import logs match every raw file';
 
-    SELECT COUNT(*)
-    INTO retained_count
-    FROM analytics.yellow_trips;
+    IF EXISTS (
+        SELECT 1
+        FROM staging.yellow_trips_quality
+        WHERE source_month IS NULL
+    ) THEN
+        RAISE EXCEPTION 'FAIL: Unrecognized source month';
+    END IF;
 
-    SELECT COUNT(*)
-    INTO excluded_count
-    FROM staging.yellow_trips_excluded;
+    RAISE NOTICE 'PASS: Every source month is recognized';
 
-    IF retained_count = 0 THEN
+    -- Reconcile counts separately for each source file.
+    IF EXISTS (
+        WITH source_counts AS (
+            SELECT source_file, COUNT(*) AS n
+            FROM raw.yellow_trips
+            GROUP BY source_file
+        ),
+        retained_counts AS (
+            SELECT source_file, COUNT(*) AS n
+            FROM analytics.yellow_trips
+            GROUP BY source_file
+        ),
+        excluded_counts AS (
+            SELECT source_file, COUNT(*) AS n
+            FROM staging.yellow_trips_excluded
+            GROUP BY source_file
+        )
+        SELECT 1
+        FROM source_counts AS s
+        LEFT JOIN retained_counts AS r USING (source_file)
+        LEFT JOIN excluded_counts AS e USING (source_file)
+        WHERE s.n <> COALESCE(r.n, 0) + COALESCE(e.n, 0)
+    ) THEN
+        RAISE EXCEPTION 'FAIL: Per-file counts do not reconcile';
+    END IF;
+
+    RAISE NOTICE 'PASS: Per-file counts reconcile';
+
+    IF NOT EXISTS (SELECT 1 FROM analytics.yellow_trips) THEN
         RAISE EXCEPTION 'FAIL: Analytical subset is empty';
     END IF;
-
-    IF source_count <> retained_count + excluded_count THEN
-        RAISE EXCEPTION
-            'FAIL: Retained and excluded counts do not reconcile';
-    END IF;
-
-    RAISE NOTICE 'PASS: Row counts reconcile';
 
     IF EXISTS (
         SELECT 1
@@ -71,23 +92,29 @@ BEGIN
 
     RAISE NOTICE 'PASS: Analytical source-row keys are unique';
 
+    -- Check month membership using the source row's derived month.
     IF EXISTS (
         SELECT 1
-        FROM analytics.yellow_trips
-        WHERE pickup_datetime IS NULL
-           OR dropoff_datetime IS NULL
-           OR pickup_datetime < TIMESTAMP '2024-01-01'
-           OR pickup_datetime >= TIMESTAMP '2024-02-01'
-           OR trip_duration_minutes IS NULL
-           OR trip_duration_minutes <= 0
-           OR trip_duration_minutes > 360
-           OR trip_distance IS NULL
-           OR trip_distance <= 0
-           OR trip_distance > 100
-           OR fare_amount IS NULL
-           OR fare_amount < 0
-           OR total_amount IS NULL
-           OR total_amount < 0
+        FROM analytics.yellow_trips AS a
+        JOIN staging.yellow_trips_quality AS q
+          ON a.source_file = q.source_file
+         AND a.source_row_number = q.source_row_number
+        WHERE q.source_month IS NULL
+           OR a.pickup_datetime IS NULL
+           OR a.dropoff_datetime IS NULL
+           OR a.pickup_datetime < q.source_month
+           OR a.pickup_datetime >=
+                q.source_month + INTERVAL '1 month'
+           OR a.trip_duration_minutes IS NULL
+           OR a.trip_duration_minutes <= 0
+           OR a.trip_duration_minutes > 360
+           OR a.trip_distance IS NULL
+           OR a.trip_distance <= 0
+           OR a.trip_distance > 100
+           OR a.fare_amount IS NULL
+           OR a.fare_amount < 0
+           OR a.total_amount IS NULL
+           OR a.total_amount < 0
     ) THEN
         RAISE EXCEPTION
             'FAIL: Analytical rows violate documented filter rules';
@@ -105,11 +132,11 @@ BEGIN
         WHERE p.location_id IS NULL
            OR d.location_id IS NULL
     ) THEN
-        RAISE EXCEPTION 'FAIL: Analytical location IDs lack lookup rows';
+        RAISE EXCEPTION 'FAIL: Location IDs lack lookup rows';
     END IF;
 
     RAISE NOTICE 'PASS: Location IDs match the zone lookup';
-    RAISE NOTICE 'All January data-quality checks passed';
+    RAISE NOTICE 'All multi-month data-quality checks passed';
 END;
 $$;
 
