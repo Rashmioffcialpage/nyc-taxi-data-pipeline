@@ -168,4 +168,65 @@ The pipeline processes 5,972,150 source records, retaining
 Airflow currently runs locally in standalone mode.
 Automatic scheduling is not enabled.
 Local environments, Airflow state, and connection settings
-are excluded from Git..
+are excluded from Git.## Analytics dashboard
+
+The FastAPI and React dashboard reads the dbt daily and pickup-zone
+summary tables.
+
+Features:
+- Retained trip counts and recorded-charge summaries
+- Daily trip chart with an exact-count table
+- Ten busiest pickup zones
+- Loading, error, and retry states
+
+Recorded charges are not driver earnings or profit.
+Dashboard refresh reads the stored summaries; it does not run the pipeline.
+
+### Run locally
+
+Start PostgreSQL:
+
+```bash
+docker compose up -d db
+```
+
+With the pipeline and dbt models already built, start the API:
+
+```bash
+.venv/bin/python -m uvicorn backend.main:app --reload --port 8003
+```
+
+In another terminal, start the frontend:
+
+```bash
+npm --prefix frontend ci
+npm --prefix frontend run dev -- --port 5173 --strictPort
+```
+
+Open <http://localhost:5173/>.
+
+### Dashboard verification
+
+With PostgreSQL and the API running:
+
+```bash
+.venv/bin/python -m unittest discover -s integration_tests -v
+```
+
+Seven API integration tests verify health, known January–February
+2024 results, daily reconciliation, weighted averages, zone ordering,
+and limit validation. Fixed dataset expectations must be updated
+when additional months are loaded.
+
+Frontend checks:
+
+```bash
+npm --prefix frontend run lint
+npm --prefix frontend run build
+```
+
+Browser error recovery was manually checked by stopping the API,
+refreshing dashboard data, restarting the API, and retrying.
+
+The last dependency audit reported ten moderate development-tool
+findings and zero production dependency findings..
