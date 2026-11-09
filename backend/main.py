@@ -16,8 +16,8 @@ DATABASE_URL = os.environ.get(
 
 app = FastAPI(
     title="NYC Taxi Analytics",
-    description="Analytics for retained January–February 2024 taxi trips.",
-    version="0.1.0",
+    description="Analytics for retained yellow taxi trips.",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -44,12 +44,11 @@ def database():
     except psycopg.Error as error:
         raise HTTPException(
             status_code=503,
-            detail="Database unavailable. Check that PostgreSQL is running.",
+            detail="Could not query the database. Check the API server logs.",
         ) from error
 
 
 def serialize(row):
-    """Convert database dates and decimals into JSON-friendly values."""
     return {
         key: (
             float(value)
@@ -62,6 +61,29 @@ def serialize(row):
     }
 
 
+def date_filter(start_date, end_date):
+    """Build an inclusive date filter using bound SQL parameters."""
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(
+            status_code=422,
+            detail="start_date must not be later than end_date.",
+        )
+
+    conditions = []
+    parameters = []
+
+    if start_date is not None:
+        conditions.append("pickup_date >= %s")
+        parameters.append(start_date)
+
+    if end_date is not None:
+        conditions.append("pickup_date <= %s")
+        parameters.append(end_date)
+
+    where = "WHERE " + " AND ".join(conditions) if conditions else ""
+    return where, parameters
+
+
 @app.get("/api/health")
 def health():
     with database() as connection:
@@ -71,23 +93,28 @@ def health():
 
 
 @app.get("/api/summary")
-def summary():
+def summary(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+):
+    where, parameters = date_filter(start_date, end_date)
+
     with database() as connection:
         row = connection.execute(
-            """
+            f"""
             SELECT
                 MIN(pickup_date) AS first_pickup_date,
                 MAX(pickup_date) AS last_pickup_date,
                 COUNT(*) AS days_with_trips,
-                COALESCE(SUM(trip_count), 0) AS trip_count,
+                COALESCE(SUM(trip_count), 0)::bigint AS trip_count,
                 ROUND(
                     SUM(total_distance_miles)
                     / NULLIF(SUM(trip_count), 0),
                     2
                 ) AS average_distance_miles,
-                ROUND(
-                    SUM(recorded_total_charges_usd),
-                    2
+                COALESCE(
+                    ROUND(SUM(recorded_total_charges_usd), 2),
+                    0
                 ) AS recorded_total_charges_usd,
                 ROUND(
                     SUM(recorded_total_charges_usd)
@@ -95,7 +122,9 @@ def summary():
                     2
                 ) AS average_recorded_total_usd
             FROM dbt_taxi.daily_trip_summary
-            """
+            {where}
+            """,
+            parameters,
         ).fetchone()
 
     return {
@@ -108,10 +137,15 @@ def summary():
 
 
 @app.get("/api/trips/daily")
-def daily_trips():
+def daily_trips(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+):
+    where, parameters = date_filter(start_date, end_date)
+
     with database() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 pickup_date,
                 trip_count,
@@ -121,32 +155,60 @@ def daily_trips():
                 recorded_total_charges_usd,
                 average_recorded_total_usd
             FROM dbt_taxi.daily_trip_summary
+            {where}
             ORDER BY pickup_date
-            """
+            """,
+            parameters,
         ).fetchall()
 
     return {"results": [serialize(row) for row in rows]}
 
 
 @app.get("/api/zones/top")
-def top_zones(limit: int = Query(default=10, ge=1, le=50)):
+def top_zones(
+    limit: int = Query(default=10, ge=1, le=50),
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+):
+    where, parameters = date_filter(start_date, end_date)
+
     with database() as connection:
         rows = connection.execute(
-            """
+            f"""
             SELECT
                 pickup_location_id,
                 pickup_borough,
                 pickup_zone,
-                trip_count,
-                average_distance_miles,
-                average_duration_minutes,
-                recorded_total_charges_usd,
-                average_recorded_total_usd
-            FROM dbt_taxi.pickup_zone_summary
+                SUM(trip_count)::bigint AS trip_count,
+                ROUND(
+                    SUM(total_distance_miles)
+                    / NULLIF(SUM(trip_count), 0),
+                    2
+                ) AS average_distance_miles,
+                ROUND(
+                    SUM(total_duration_minutes)
+                    / NULLIF(SUM(trip_count), 0),
+                    2
+                ) AS average_duration_minutes,
+                ROUND(
+                    SUM(recorded_total_charges_usd),
+                    2
+                ) AS recorded_total_charges_usd,
+                ROUND(
+                    SUM(recorded_total_charges_usd)
+                    / NULLIF(SUM(trip_count), 0),
+                    2
+                ) AS average_recorded_total_usd
+            FROM dbt_taxi.daily_pickup_zone_summary
+            {where}
+            GROUP BY
+                pickup_location_id,
+                pickup_borough,
+                pickup_zone
             ORDER BY trip_count DESC, pickup_location_id
             LIMIT %s
             """,
-            (limit,),
+            [*parameters, limit],
         ).fetchall()
 
     return {"results": [serialize(row) for row in rows]}
