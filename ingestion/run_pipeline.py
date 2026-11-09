@@ -132,8 +132,11 @@ def main():
 
     months = list(month_range(args.start_month, end_month))
 
-    # Validate required inputs before changing the database.
+        # Validate required inputs before changing the database.
     required_files = [
+        PROJECT_ROOT / ".venv-dbt/bin/dbt",
+        PROJECT_ROOT / "dbt/dbt_project.yml",
+        PROJECT_ROOT / "dbt/profiles.yml",
         PROJECT_ROOT / "compose.yaml",
         PROJECT_ROOT / "data/raw/taxi_zone_lookup.csv",
         PROJECT_ROOT / "ingestion/load_zones.py",
@@ -150,7 +153,6 @@ def main():
             for filename in SETUP_SQL_FILES + TRANSFORM_SQL_FILES
         ],
     ]
-
     missing = [
         str(path)
         for path in required_files
@@ -205,7 +207,17 @@ def main():
     # Rebuild views and validate all loaded months.
     for filename in TRANSFORM_SQL_FILES:
         run_sql(filename)
-
+    run_step(
+        "Build and test dbt models",
+        [
+            str(PROJECT_ROOT / ".venv-dbt" / "bin" / "dbt"),
+            "build",
+            "--project-dir",
+            str(PROJECT_ROOT / "dbt"),
+            "--profiles-dir",
+            str(PROJECT_ROOT / "dbt"),
+        ],
+    )
     elapsed = time.perf_counter() - started
     print(f"\nPIPELINE PASSED in {elapsed:.1f} seconds", flush=True)
 
