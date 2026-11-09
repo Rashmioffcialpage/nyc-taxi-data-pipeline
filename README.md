@@ -5,33 +5,43 @@ to ingest, inspect, and summarize NYC yellow taxi trip records.
 
 ## Current status
 
-The January 2024 pipeline is implemented and verified.
+The local pipeline supports inclusive month ranges and has been
+verified with January and February 2024 yellow taxi records.
+
+Implemented:
 
 - Batch ingestion using PyArrow and PostgreSQL COPY
 - SHA-256 file tracking and duplicate-import protection
+- Source-month metadata stored once per imported file
 - Raw records preserved separately from analytical views
-- Data-quality flags and six automated quality checks
+- Seven database quality checks
 - Daily and pickup-zone summaries with count reconciliation
-- One-command pipeline runner
+- Timestamped console logs and JSON run summaries
+- Ten passing Python unit tests
+- GitHub Actions workflow for unit tests and syntax checks
 
-Multi-month processing, backfills, dbt, scheduling, and visualization
-are planned, not yet implemented.
+dbt transformations, scheduled orchestration, and dashboard
+visualization remain planned.
 
 ## Verified results
 
-| Metric | Result |
+| Metric | January–February 2024 |
 | --- | ---: |
-| Source trips | 2,964,624 |
+| Source trips | 5,972,150 |
 | Taxi-zone lookup rows | 265 |
-| Retained analytical trips | 2,868,179 |
-| Excluded trips | 96,445 |
-| Excluded share | 3.25% |
-| Average retained distance | 3.29 miles |
-| Average retained duration | 14.97 minutes |
-| Average retained recorded total charge | $27.34 |
+| Retained analytical trips | 5,768,183 |
+| Excluded trips | 203,967 |
+| Excluded share | 3.42% |
+| Average retained distance | 3.26 miles |
+| Average retained duration | 15.17 minutes |
+| Average retained recorded total charge | $27.28 |
 
-A local rerun completed in 22 seconds. This skipped the existing trip
-import and rebuilt and checked the views; it is not a fresh-load benchmark.
+After replacing per-row filename parsing with source-file metadata,
+observed pipeline rerun time decreased from 1,567.8 seconds to
+64.0 seconds. A subsequent logged rerun completed in 58.9 seconds.
+
+These runs skipped existing imports. They are local observations,
+not fresh-load benchmarks; cache and system conditions affect timing.
 
 ## Data flow
 
@@ -54,7 +64,7 @@ The current analytical subset excludes trips with:
 - Negative fare or total charge
 - Distance above 100 miles
 - Duration above six hours
-
+- Pickup outside the month identified by its source file
 The distance and duration thresholds define this project's analysis
 scope; they are not universal definitions of invalid trips.
 Negative charges may represent adjustments.
@@ -140,4 +150,22 @@ that every retained source record is accurate.
 NYC Taxi and Limousine Commission:
 https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page
 
-Datasets: January 2024 yellow taxi trips and the taxi-zone lookup.
+Datasets: January 2024 yellow taxi trips and the taxi-zone lookup## Airflow orchestration
+
+The `nyc_taxi_pipeline` DAG runs the logged Python pipeline,
+SQL quality checks, and dbt build for January–February 2024.
+
+- Manually triggered through the local Airflow interface.
+- First verified DAG run succeeded in 1 minute 24 seconds.
+- Task succeeded on its first attempt.
+- Existing imports were verified and skipped without reloading.
+- Airflow displays pipeline output in the task logs.
+- Two retries are configured with a one-minute delay.
+
+The pipeline processes 5,972,150 source records, retaining
+5,768,183 trips and excluding 203,967 under documented analysis rules.
+
+Airflow currently runs locally in standalone mode.
+Automatic scheduling is not enabled.
+Local environments, Airflow state, and connection settings
+are excluded from Git..
