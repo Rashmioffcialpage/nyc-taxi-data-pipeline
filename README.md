@@ -240,4 +240,28 @@ or driver earnings..### Verified Airflow run
 ![Successful NYC taxi Airflow DAG run](docs/images/airflow-success.png)
 
 The manually triggered DAG completed successfully in 1 minute
-24 seconds on its first attempt.
+24 seconds on its first attempt## Date filtering
+
+The dashboard supports optional, inclusive start and end dates.
+Applying a range updates the summary cards, daily chart, and
+pickup-zone rankings together.
+
+- Blank dates leave that boundary unrestricted.
+- Clear dates restores the full loaded period.
+- Reversed dates are rejected.
+- Empty periods display zero trips and unavailable averages.
+- Zone rankings use the dbt daily pickup-zone summary table.
+
+Example API request:
+
+`GET /api/summary?start_date=2024-01-01&end_date=2024-01-31`
+
+Verified January results:
+- 2,868,179 retained trips across 31 days
+- $78,406,797.55 in recorded total charges
+
+Fourteen local API integration tests passed, including date-range
+validation, inclusive boundaries, empty periods, filtered zone
+rankings, and reconciliation checks.
+
+Integration tests require PostgreSQL and the API to be running..
