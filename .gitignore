@@ -16,3 +16,26 @@ data/raw/*
 # Generated files
 logs/
 .DS_Store
+# Local environments
+.venv/
+.venv-airflow/
+.venv-dbt/
+__pycache__/
+*.py[cod]
+
+# Local Airflow state and credentials
+.airflow/
+logs/
+
+# Local dbt settings and generated files
+dbt/profiles.yml
+dbt/.user.yml
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# Local secrets and macOS files
+.env
+.env.*
+!.env.example
+.DS_Store
