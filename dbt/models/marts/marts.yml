@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: daily_trip_summary
+    description: >
+      Daily metrics for retained trips, grouped by pickup date.
+      Recorded charges are not profit or driver earnings.
+
+    columns:
+      - name: pickup_date
+        data_tests:
+          - not_null
+          - unique
+
+      - name: trip_count
+        data_tests:
+          - not_null
+
+  - name: pickup_zone_summary
+    description: >
+      Metrics grouped by pickup location for all retained trips.
+      Unknown-location categories remain included.
+
+    columns:
+      - name: pickup_location_id
+        data_tests:
+          - not_null
+          - unique
+
+      - name: trip_count
+        data_tests:
+          - not_null

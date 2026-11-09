@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: stg_yellow_trips
+    description: >
+      All raw trips enriched with source month and trip duration.
+      No records are filtered out at this stage.
+
+    columns:
+      - name: source_file
+        data_tests:
+          - not_null
+
+      - name: source_row_number
+        data_tests:
+          - not_null
+
+      - name: source_month
+        data_tests:
+          - not_null

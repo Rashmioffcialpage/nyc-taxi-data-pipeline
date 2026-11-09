@@ -1,0 +1,16 @@
+name: nyc_taxi
+version: "1.0.0"
+config-version: 2
+
+profile: nyc_taxi
+
+model-paths: ["models"]
+test-paths: ["tests"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  nyc_taxi:
+    +materialized: view

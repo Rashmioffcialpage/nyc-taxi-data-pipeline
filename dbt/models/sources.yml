@@ -1,0 +1,38 @@
+version: 2
+
+sources:
+  - name: taxi_raw
+    schema: raw
+    description: "Taxi records loaded by the Python ingestion pipeline."
+
+    tables:
+      - name: yellow_trips
+        description: "Original trip values with source-file and row tracking."
+        columns:
+          - name: source_file
+            data_tests:
+              - not_null
+
+          - name: source_row_number
+            data_tests:
+              - not_null
+
+      - name: taxi_zones
+        description: "TLC taxi-zone lookup."
+        columns:
+          - name: location_id
+            data_tests:
+              - not_null
+              - unique
+
+      - name: ingestion_files
+        description: "Completed imports, checksums, row counts, and source months."
+        columns:
+          - name: source_file
+            data_tests:
+              - not_null
+              - unique
+
+          - name: source_month
+            data_tests:
+              - not_null
