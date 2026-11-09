@@ -229,4 +229,10 @@ Browser error recovery was manually checked by stopping the API,
 refreshing dashboard data, restarting the API, and retrying.
 
 The last dependency audit reported ten moderate development-tool
-findings and zero production dependency findings..
+findings and zero production dependency findings.## Dashboard preview
+
+![NYC Taxi dashboard showing retained trip summaries, daily counts, and busiest pickup zones](docs/images/taxi-dashboard.png)
+
+January–February 2024: 5,768,183 retained trips.
+Recorded charges represent source-recorded amounts, not profit
+or driver earnings..
