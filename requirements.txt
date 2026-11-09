@@ -1,2 +1,4 @@
 pyarrow
 psycopg[binary]
+fastapi
+uvicorn

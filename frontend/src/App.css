@@ -1,0 +1,293 @@
+.dashboard {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 56px 32px 28px;
+}
+
+.page-header,
+.toolbar,
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-header {
+  align-items: flex-start;
+  margin-bottom: 36px;
+}
+
+.eyebrow {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+
+h1 {
+  font-size: clamp(32px, 4vw, 54px);
+  line-height: 1.12;
+  letter-spacing: -2px;
+  margin-bottom: 18px;
+}
+
+.subtitle {
+  color: #596981;
+  max-width: 700px;
+  line-height: 1.7;
+}
+
+.github-link {
+  flex-shrink: 0;
+  font-weight: 700;
+  text-decoration: none;
+  padding: 12px 16px;
+  border: 1px solid #d7dfec;
+  border-radius: 10px;
+  background: white;
+}
+
+.toolbar {
+  margin-bottom: 24px;
+}
+
+.toolbar p {
+  margin: 0;
+  font-weight: 600;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  background: #2563eb;
+  color: white;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+button:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.metric,
+.panel {
+  background: #fff;
+  border: 1px solid #dde5f0;
+  border-radius: 16px;
+}
+
+.metric {
+  padding: 24px;
+  min-width: 0;
+}
+
+.metric p {
+  color: #596981;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+
+.metric h2 {
+  font-size: clamp(22px, 2.1vw, 31px);
+  letter-spacing: -1px;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.metric small {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.metric span {
+  font-size: 12px;
+  color: #65748a;
+}
+
+.scope-note {
+  border-left: 4px solid #e6ad22;
+  background: #fff8e5;
+  padding: 18px 20px;
+  margin: 24px 0;
+  border-radius: 6px;
+  line-height: 1.6;
+  font-size: 14px;
+}
+
+.panel {
+  padding: 28px;
+  margin-bottom: 24px;
+}
+
+.panel-heading {
+  margin-bottom: 24px;
+}
+
+.panel h2 {
+  margin-bottom: 0;
+  font-size: 24px;
+  letter-spacing: -0.5px;
+}
+
+.highlight,
+.muted {
+  color: #596981;
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.highlight {
+  text-align: right;
+}
+
+.chart-scroll,
+.table-scroll {
+  overflow-x: auto;
+}
+
+.daily-chart {
+  display: block;
+  width: 100%;
+  min-width: 560px;
+}
+
+.grid-line {
+  stroke: #e4eaf3;
+  stroke-width: 1;
+}
+
+.axis-label {
+  fill: #596981;
+  font-size: 12px;
+}
+
+.daily-details {
+  margin-top: 20px;
+}
+
+.daily-details summary {
+  cursor: pointer;
+  color: #1d4ed8;
+  font-weight: 600;
+  padding: 10px 0;
+}
+
+.daily-details .table-scroll {
+  max-height: 340px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+caption {
+  text-align: left;
+  color: #65748a;
+  padding-bottom: 16px;
+  font-size: 13px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 16px 12px;
+  border-bottom: 1px solid #e4eaf3;
+}
+
+thead th {
+  background: #f6f8fc;
+  color: #596981;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+tbody th {
+  font-weight: 600;
+}
+
+tbody tr:hover {
+  background: #f8faff;
+}
+
+.numeric {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.error-message {
+  background: #fff0f0;
+  color: #9b2020;
+  border: 1px solid #efbaba;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+footer {
+  color: #65748a;
+  font-size: 12px;
+  line-height: 1.7;
+  padding-top: 8px;
+}
+
+@media (max-width: 1100px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard {
+    padding: 28px 16px;
+  }
+
+  .page-header,
+  .panel-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .toolbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 20px 16px;
+  }
+
+  .highlight {
+    text-align: left;
+  }
+
+  h1 {
+    letter-spacing: -1px;
+  }
+}
