@@ -235,4 +235,9 @@ findings and zero production dependency findings.## Dashboard preview
 
 January–February 2024: 5,768,183 retained trips.
 Recorded charges represent source-recorded amounts, not profit
-or driver earnings..
+or driver earnings..### Verified Airflow run
+
+![Successful NYC taxi Airflow DAG run](docs/images/airflow-success.png)
+
+The manually triggered DAG completed successfully in 1 minute
+24 seconds on its first attempt.
